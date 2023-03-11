@@ -28,14 +28,18 @@ cdef extern from "stdlib.h":
     void free(void * ptr)
 
 class MoiraException(Exception):
+    @property
     def code(self):
-        return self.args[0]
-    code = property(code)
+        return self.args[0][0]
+
+    @property
+    def message(self):
+        return self.args[0][1]
 
 __connected = False
 
 def _error(code):
-    raise MoiraException((code, error_message(code)))
+    raise MoiraException((code, error_message(code).decode()))
 
 def connect(server=''):
     """
