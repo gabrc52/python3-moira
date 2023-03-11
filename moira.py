@@ -10,17 +10,26 @@ import os
 import re
 
 import _moira
-from _moira import (auth, host, motd, noop, proxy, MoiraException)
+from _moira import auth, host, motd, noop, proxy, MoiraException
 
 
-help_re = re.compile('([a-z0-9_, ]*) \(([a-z0-9_, ]*)\)(?: => ([a-z0-9_, ]*))?',
-                     re.I)
-et_re = re.compile(r'^\s*#\s*define\s+([A-Za-z0-9_]+)\s+.*?([0-9]+)')
+help_re = re.compile("([a-z0-9_, ]*) \(([a-z0-9_, ]*)\)(?: => ([a-z0-9_, ]*))?", re.I)
+et_re = re.compile(r"^\s*#\s*define\s+([A-Za-z0-9_]+)\s+.*?([0-9]+)")
 
 
 _arg_cache = {}
 _return_cache = {}
 _et_cache = {}
+
+
+def _to_bytes(s):
+    """
+    If given a string, converts it to bytes, otherwise returns it as is
+    """
+    if isinstance(s, str):
+        return s.encode()
+    else:
+        return s
 
 
 def _clear_caches():
@@ -33,9 +42,11 @@ def _clear_caches():
     _return_cache.clear()
 
 
-def connect(server=''):
-    _moira.connect(server)
+def connect(server=""):
+    _moira.connect(_to_bytes(server))
     version(-1)
+
+
 connect.__doc__ = _moira.connect.__doc__
 
 
@@ -54,13 +65,13 @@ def _load_help(handle):
     and return values into and out of dictionaries and into and out of
     tuples.
     """
-    help_string = ', '.join(query('_help', handle)[0]).strip()
+    help_string = ", ".join(query("_help", handle)[0]).strip()
 
-    handle_str, arg_str, return_str = help_re.match(help_string).groups('')
+    handle_str, arg_str, return_str = help_re.match(help_string).groups("")
 
-    handles = handle_str.split(', ')
-    args = arg_str.split(', ')
-    returns = return_str.split(', ')
+    handles = handle_str.split(", ")
+    args = arg_str.split(", ")
+    returns = return_str.split(", ")
 
     for h in handles:
         _arg_cache[h] = args
@@ -70,12 +81,21 @@ def _load_help(handle):
 def _list_query(handle, *args):
     """
     Execute a Moira query and return the result as a list of tuples.
-    
+
     This bypasses the tuple -> dict conversion done in moira.query()
     """
     results = []
-    _moira._query(handle, results.append, *args)
-    return results
+
+    # Python 3 wants bytes
+    args_converted = (_to_bytes(arg) for arg in args)
+
+    _moira._query(_to_bytes(handle), results.append, *args_converted)
+
+    # We get bytes back, convert back to string
+    return [
+        tuple(val.decode() for val in result)
+        for result in results
+    ]
 
 
 def _parse_args(handle, args, kwargs):
@@ -91,34 +111,34 @@ def _parse_args(handle, args, kwargs):
     arguments that can be passed to the low-level Moira query
     function.
     """
-    if (handle not in _return_cache or
-        not _return_cache[handle]):
+    if handle not in _return_cache or not _return_cache[handle]:
         _load_help(handle)
 
     if kwargs:
-        return tuple(kwargs.get(i, '*')
-                     for i in _arg_cache[handle])
+        return tuple(_to_bytes(kwargs.get(i, "*")) for i in _arg_cache[handle])
     else:
-        return args
+        return tuple(_to_bytes(arg) for arg in args)
 
 
 def query(handle, *args, **kwargs):
     """
     Execute a Moira query and return the result as a list of dicts.
-    
+
     Arguments can be specified either as positional or keyword
     arguments. If specified by keyword, they are cross-referenced with
     the argument name given by the query "_help handle".
-    
+
     All of the real work of Moira is done in queries. There are over
     100 queries, each of which requires different arguments. The
     arguments to the queries should be passed as separate arguments to
     the function.
     """
-    if handle.startswith('_'):
-        return _list_query(handle, *args)
+    if handle.startswith("_"):
+        args_converted = (_to_bytes(arg) for arg in args)
+
+        return _list_query(handle, *args_converted)
     else:
-        fmt = kwargs.pop('fmt', dict)
+        fmt = kwargs.pop("fmt", dict)
 
         args = _parse_args(handle, args, kwargs)
 
@@ -147,10 +167,10 @@ def access(handle, *args, **kwargs):
     args = _parse_args(handle, args, kwargs)
 
     try:
-        _moira._access(handle, *args)
+        _moira._access(_to_bytes(handle), *args)
         return True
     except MoiraException as e:
-        if e.code != errors()['MR_PERM']:
+        if e.code != errors()["MR_PERM"]:
             raise
         return False
 
@@ -160,6 +180,8 @@ def version(ver):
     # return values
     _clear_caches()
     return _moira.version(ver)
+
+
 version.__doc__ = _moira.version.__doc__
 
 
@@ -174,9 +196,8 @@ def errors():
     bug that it isn't.
     """
     if not _et_cache:
-        for prefix in ('/usr/include',
-                       '/sw/include'):
-            header = os.path.join(prefix, 'moira/mr_et.h')
+        for prefix in ("/usr/include", "/sw/include"):
+            header = os.path.join(prefix, "moira/mr_et.h")
             if os.path.exists(header):
                 for line in open(header):
                     m = et_re.search(line)
@@ -187,6 +208,18 @@ def errors():
     return _et_cache
 
 
-__all__ = ['connect', 'disconnect', 'auth', 'host', 'motd', 'noop', 'query',
-           'proxy', 'version', 'access', 'errors', '_list_query',
-           'MoiraException']
+__all__ = [
+    "connect",
+    "disconnect",
+    "auth",
+    "host",
+    "motd",
+    "noop",
+    "query",
+    "proxy",
+    "version",
+    "access",
+    "errors",
+    "_list_query",
+    "MoiraException",
+]
