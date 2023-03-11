@@ -126,7 +126,7 @@ def query(handle, *args, **kwargs):
         results = []
 
         for r in plain_results:
-            results.append(fmt(zip(_return_cache[handle], r)))
+            results.append(fmt(list(zip(_return_cache[handle], r))))
 
         return results
 
@@ -149,7 +149,7 @@ def access(handle, *args, **kwargs):
     try:
         _moira._access(handle, *args)
         return True
-    except MoiraException, e:
+    except MoiraException as e:
         if e.code != errors()['MR_PERM']:
             raise
         return False
