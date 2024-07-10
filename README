@@ -11,6 +11,11 @@ by running::
 
   $ pip install Cython
 
+Other dependencies you need is wheel and setuptools, which seem to
+not be installed by default anymore.
+
+  $ pip install --upgrade setuptools wheel
+
 Once you've done that, to install PyMoira globally, run::
 
   $ pip install .
