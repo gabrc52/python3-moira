@@ -197,7 +197,7 @@ def version(ver):
     else:
         _error(status)
 
-cdef int _call_python_callback(int argc, char ** argv, void * hint):
+cdef int _call_python_callback(int argc, char ** argv, void * hint) noexcept:
     cdef object callback
     callback = <object>hint
     result = []
